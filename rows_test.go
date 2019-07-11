@@ -460,6 +460,41 @@ func TestCSVRowParser(t *testing.T) {
 	}
 }
 
+func TestCSVRowParserCustomDriverValue(t *testing.T) {
+	t.Parallel()
+	rs := NewRows([]string{"col1", "col2", "col3"}).FromCSVString("a,1,NULL")
+	db, mock, err := New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer db.Close()
+
+	mock.ExpectQuery("SELECT").WillReturnRows(rs)
+
+	rw, err := db.Query("SELECT")
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+	defer rw.Close()
+	var col1 string
+	var col2 sql.NullInt64
+	var col3 sql.NullInt64
+
+	rw.Next()
+	if err = rw.Scan(&col1, &col2, &col3); err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+	if col1 != "a" {
+		t.Fatalf("expected col1 to be 'a', but got [%T]:%+v", col1, col1)
+	}
+	if !col2.Valid || col3.Int64 != 1 {
+		t.Fatalf("expected col2 to be valid and have int64 value 1, but got [%T]:%+v", col2, col2)
+	}
+	if col3.Valid {
+		t.Fatalf("expected col2 to be invalid, but got [%T]:%+v", col2, col2)
+	}
+}
+
 func TestWrongNumberOfValues(t *testing.T) {
 	// Open new mock database
 	db, mock, err := New()
